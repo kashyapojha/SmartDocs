@@ -31,7 +31,7 @@ jobs:
 
       - name: Run tests
         working-directory: ${{ matrix.service }}
-        run: npm test || exit 0   # Prevents workflow failure if tests fail
+        run: npm test || exit 0   # Optional: prevent workflow failure if tests fail
 
   docker-build-and-push:
     name: Build & Push Docker Images
@@ -42,7 +42,7 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
-      # ---- Docker Hub login ----
+      # ---- Docker Hub login only ----
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
@@ -51,13 +51,13 @@ jobs:
           registry: docker.io
           logout: true
 
-      # ---- Build & push frontend ----
+      # ---- Build & Push Frontend ----
       - name: Build & Push Frontend Docker Image
         run: |
           docker build -t karann24/smartdocs-frontend:latest ./frontend
           docker push karann24/smartdocs-frontend:latest
 
-      # ---- Build & push backend ----
+      # ---- Build & Push Backend ----
       - name: Build & Push Backend Docker Image
         run: |
           docker build -t karann24/smartdocs-backend:latest ./backend

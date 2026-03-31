@@ -27,11 +27,11 @@ jobs:
 
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
-        run: npm install --legacy-peer-deps   # Fixes CI install issues across OS
+        run: npm install --legacy-peer-deps
 
       - name: Run tests
         working-directory: ${{ matrix.service }}
-        run: npm test || exit 0                # Optional: prevents workflow failure if tests fail
+        run: npm test || exit 0   # Optional: prevents workflow failure if tests fail
 
   docker-build-and-push:
     name: Build & Push Docker Images
@@ -42,20 +42,24 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v3
 
+      # ---- Docker Hub login ----
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
         with:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
+          registry: docker.io
 
-      - name: Build Docker images
+      # ---- Build and push frontend ----
+      - name: Build & Push Frontend Docker Image
         run: |
           docker build -t karann24/smartdocs-frontend:latest ./frontend
-          docker build -t karann24/smartdocs-backend:latest ./backend
-
-      - name: Push Docker images
-        run: |
           docker push karann24/smartdocs-frontend:latest
+
+      # ---- Build and push backend ----
+      - name: Build & Push Backend Docker Image
+        run: |
+          docker build -t karann24/smartdocs-backend:latest ./backend
           docker push karann24/smartdocs-backend:latest
 
   deploy-staging:

@@ -21,6 +21,10 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json());
 
+
+app.get("/health", (req, res) => {
+  res.status(200).send("OK");
+});
 // ================= SOCKET.IO =================
 const io = socketIO(server, {
   cors: {

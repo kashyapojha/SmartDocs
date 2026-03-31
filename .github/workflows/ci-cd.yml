@@ -86,7 +86,10 @@ jobs:
           username: ${{ secrets.STAGING_USER }}
           key: ${{ secrets.STAGING_KEY }}
           script: |
-            docker pull karann24/smartdocs-frontend:latest
-            docker pull karann24/smartdocs-backend:latest
-            docker-compose -f /home/ubuntu/SmartDocs/docker-compose.yml down
-            docker-compose -f /home/ubuntu/SmartDocs/docker-compose.yml up -d
+          cd /home/ubuntu/smart-docs/SmartDocs
+          docker pull karann24/smartdocs-frontend:latest
+          docker pull karann24/smartdocs-backend:latest
+          docker-compose down
+          docker-compose up -d
+
+     

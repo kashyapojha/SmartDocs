@@ -8,6 +8,8 @@ COPY package*.json ./
 # Install dependencies
 RUN npm ci
 
+RUN apk add --no-cache curl
+
 # Copy rest of application
 COPY . .
 

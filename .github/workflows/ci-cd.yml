@@ -23,15 +23,15 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v3
         with:
-          node-version: '24'    # Updated to Node.js 24 to fix deprecation warning
+          node-version: '24'    # Node.js 24 to avoid deprecation warnings
 
       - name: Install dependencies
         working-directory: ${{ matrix.service }}
-        run: npm ci               # CI-friendly, installs exact versions from package-lock.json
+        run: npm install --legacy-peer-deps   # Fixes CI install issues across OS
 
       - name: Run tests
         working-directory: ${{ matrix.service }}
-        run: npm test || exit 0   # Prevents pipeline from failing if tests fail (optional)
+        run: npm test || exit 0                # Optional: prevents workflow failure if tests fail
 
   docker-build-and-push:
     name: Build & Push Docker Images
@@ -65,7 +65,7 @@ jobs:
 
     steps:
       - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.9   # Updated to latest version
+        uses: appleboy/ssh-action@v0.1.9
         with:
           host: ${{ secrets.STAGING_HOST }}
           username: ${{ secrets.STAGING_USER }}

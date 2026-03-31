@@ -49,6 +49,7 @@ jobs:
           username: ${{ secrets.DOCKER_USERNAME }}
           password: ${{ secrets.DOCKER_PASSWORD }}
           registry: docker.io
+          ecr: false       # <-- DISABLES AWS ECR auto-login
           logout: true
 
       # ---- Build & Push Frontend ----

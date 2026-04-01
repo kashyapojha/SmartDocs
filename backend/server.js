@@ -14,7 +14,7 @@ const server = http.createServer(app);
 
 // ================= CORS CONFIG =================
 const corsOptions = {
-  origin: process.env.CLIENT_URL,
+  origin: "http://3.111.204.191:3000",
   credentials: true,
 };
 

@@ -48,7 +48,7 @@ router.post("/:docId/create-link", authMiddleware, async (req, res) => {
       success: true,
       shareLinkId: shareLink._id,
       token: shareLink.token,
-      shareUrl: `${process.env.FRONTEND_URL || "http://localhost:3000"}/share/${shareLink.token}`,
+      shareUrl: `${process.env.FRONTEND_URL || "http://3.111.204.191:3000"}/share/${shareLink.token}`,
       permission: shareLink.permission,
       expiresAt: shareLink.expiresAt,
     });

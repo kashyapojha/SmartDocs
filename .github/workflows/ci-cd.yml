@@ -1,105 +1,124 @@
 name: SmartDocs CI/CD
 
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+push:
+branches: [main]
+pull_request:
+branches: [main]
 
 jobs:
 
-  # -------------------------------
-  # 1️⃣ Build & Test
-  # -------------------------------
-  build-and-test:
-    name: Build & Test
-    runs-on: ubuntu-latest
+# -------------------------------
 
-    strategy:
-      matrix:
-        service: [frontend, backend]
+# 1️⃣ Build & Test
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+# -------------------------------
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v3
-        with:
-          node-version: '20'   # safer than 24
+build-and-test:
+name: Build & Test
+runs-on: ubuntu-latest
 
-      - name: Install dependencies
-        working-directory: ${{ matrix.service }}
-        run: npm install --legacy-peer-deps
+```
+strategy:
+  matrix:
+    service: [frontend, backend]
 
-      - name: Run tests
-        working-directory: ${{ matrix.service }}
-        run: npm test || echo "No tests found"
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v3
 
-  # -------------------------------
-  # 2️⃣ Build & Push Docker Images
-  # -------------------------------
-  docker-build-and-push:
-    name: Docker Build & Push
-    runs-on: ubuntu-latest
-    needs: build-and-test
+  - name: Setup Node.js
+    uses: actions/setup-node@v3
+    with:
+      node-version: '20'
 
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v3
+  - name: Install dependencies
+    working-directory: ${{ matrix.service }}
+    run: npm install --legacy-peer-deps
 
-      - name: Login to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
+  - name: Run tests
+    working-directory: ${{ matrix.service }}
+    run: npm test || echo "No tests found"
+```
 
-      - name: Build & Push Frontend
-        run: |
-          docker build -t karann24/smartdocs-frontend:latest ./frontend
-          docker push karann24/smartdocs-frontend:latest
+# -------------------------------
 
-      - name: Build & Push Backend
-        run: |
-          docker build -t karann24/smartdocs-backend:latest ./backend
-          docker push karann24/smartdocs-backend:latest
+# 2️⃣ Build & Push Docker Images
 
-  # -------------------------------
-  # 3️⃣ Deploy to EC2 (Staging/Prod)
-  # -------------------------------
-  deploy:
-    name: Deploy to EC2
-    runs-on: ubuntu-latest
-    needs: docker-build-and-push
+# -------------------------------
 
-    steps:
-      - name: Deploy via SSH
-        uses: appleboy/ssh-action@v0.1.9
-        with:
-          host: ${{ secrets.STAGING_HOST }}
-          username: ${{ secrets.STAGING_USER }}
-          key: ${{ secrets.STAGING_KEY }}
-          script: |
-            set -e
+docker-build-and-push:
+name: Docker Build & Push
+runs-on: ubuntu-latest
+needs: build-and-test
 
-            echo "🚀 Starting deployment..."
+```
+steps:
+  - name: Checkout code
+    uses: actions/checkout@v3
 
-            cd /home/ubuntu/smart-docs/SmartDocs
+  - name: Login to Docker Hub
+    uses: docker/login-action@v2
+    with:
+      username: ${{ secrets.DOCKER_USERNAME }}
+      password: ${{ secrets.DOCKER_PASSWORD }}
 
-            echo "📥 Pulling latest code"
-            git pull origin main
+  # ✅ FIXED FRONTEND BUILD
+  - name: Build & Push Frontend
+    run: |
+      docker build \
+        --build-arg REACT_APP_API_URL=http://3.111.204.191:5000 \
+        -t karann24/smartdocs-frontend:latest ./frontend
 
-            echo "🐳 Pulling latest Docker images"
-            docker pull karann24/smartdocs-frontend:latest
-            docker pull karann24/smartdocs-backend:latest
+      docker push karann24/smartdocs-frontend:latest
 
-            echo "🛑 Stopping old containers"
-            docker-compose down
+  - name: Build & Push Backend
+    run: |
+      docker build -t karann24/smartdocs-backend:latest ./backend
+      docker push karann24/smartdocs-backend:latest
+```
 
-            echo "▶️ Starting new containers"
-            docker-compose up -d --remove-orphans
+# -------------------------------
 
-            echo "🧹 Cleaning unused images"
-            docker image prune -f
+# 3️⃣ Deploy to EC2
 
-            echo "✅ Deployment complete!"
+# -------------------------------
+
+deploy:
+name: Deploy to EC2
+runs-on: ubuntu-latest
+needs: docker-build-and-push
+
+```
+steps:
+  - name: Deploy via SSH
+    uses: appleboy/ssh-action@v0.1.9
+    with:
+      host: ${{ secrets.STAGING_HOST }}
+      username: ${{ secrets.STAGING_USER }}
+      key: ${{ secrets.STAGING_KEY }}
+      script: |
+        set -e
+
+        echo "🚀 Starting deployment..."
+
+        cd /home/ubuntu/smart-docs/SmartDocs
+
+        echo "📥 Pulling latest code"
+        git pull origin main
+
+        echo "🐳 Pulling latest Docker images"
+        docker pull karann24/smartdocs-frontend:latest
+        docker pull karann24/smartdocs-backend:latest
+
+        echo "🛑 Stopping old containers"
+        docker compose down
+
+        echo "▶️ Starting new containers"
+        docker compose up -d --remove-orphans
+
+        echo "🧹 Cleaning unused images"
+        docker image prune -f
+
+        echo "✅ Deployment complete!"
+```

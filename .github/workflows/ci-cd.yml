@@ -84,16 +84,24 @@ jobs:
           script: |
             set -e
             echo "🚀 Starting deployment..."
+
             cd /home/ubuntu/smart-docs/SmartDocs
-            echo "📥 Pulling latest code"
-            git pull origin main
+
+            echo "📥 Syncing latest code"
+            git fetch origin
+            git reset --hard origin/main
+
             echo "🐳 Pulling latest Docker images"
             docker pull karann24/smartdocs-frontend:latest
             docker pull karann24/smartdocs-backend:latest
+
             echo "🛑 Stopping old containers"
             docker compose down
+
             echo "▶️ Starting new containers"
             docker compose up -d --remove-orphans
+
             echo "🧹 Cleaning unused images"
             docker image prune -f
+
             echo "✅ Deployment complete!"

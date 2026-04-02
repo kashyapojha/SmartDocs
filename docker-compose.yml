@@ -1,113 +1,98 @@
-name: SmartDocs CI/CD
+version: '3.9'
 
-on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+services:
 
-jobs:
-  build-test-analyze-deploy:
-    runs-on: ubuntu-latest
+  # -------------------------------
+  # MongoDB Database
+  # -------------------------------
+  mongodb:
+    image: mongo:7
+    container_name: smartdocs-mongo
+    ports:
+      - "127.0.0.1:27017:27017"
+    environment:
+      MONGO_INITDB_DATABASE: smartdocs
+    volumes:
+      - mongo_data:/data/db
+    restart: unless-stopped
+    networks:
+      - smartdocs-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-    steps:
-    # -------------------------------
-    # 1. Checkout Code
-    # -------------------------------
-    - name: Checkout code
-      uses: actions/checkout@v3
-      with:
-        fetch-depth: 0
+  # -------------------------------
+  # Backend API Server
+  # -------------------------------
+  backend:
+    image: karann24/smartdocs-backend:latest
+    container_name: smartdocs-backend
+    ports:
+      - "5000:5000"
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      PORT: 5000
+      MONGO_URI: mongodb://mongodb:27017/smartdocs
+      CLIENT_URL: http://3.111.204.191:3000
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    volumes:
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    networks:
+      - smartdocs-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-    # -------------------------------
-    # 2. Setup Node.js
-    # -------------------------------
-    - name: Setup Node.js
-      uses: actions/setup-node@v3
-      with:
-        node-version: 18
+  # -------------------------------
+  # Frontend React Application
+  # -------------------------------
+  frontend:
+    image: karann24/smartdocs-frontend:latest
+    container_name: smartdocs-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      REACT_APP_API_URL: http://3.111.204.191:5000
+      NODE_ENV: production
+    depends_on:
+      backend:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - smartdocs-network
+    logging:
+      options:
+        max-size: "10m"
+        max-file: "3"
 
-    # -------------------------------
-    # 3. Install Backend Dependencies
-    # -------------------------------
-    - name: Install backend dependencies
-      working-directory: backend
-      run: npm install
+# -------------------------------
+# Volumes
+# -------------------------------
+volumes:
+  mongo_data:
 
-    # -------------------------------
-    # 4. Install Frontend Dependencies
-    # -------------------------------
-    - name: Install frontend dependencies
-      working-directory: frontend
-      run: npm install
-
-    # -------------------------------
-    # 5. SonarCloud Scan
-    # -------------------------------
-    - name: SonarCloud Scan
-      uses: sonarsource/sonarcloud-github-action@v2
-      with:
-        args: >
-          -Dsonar.projectKey=SmartDocs
-          -Dsonar.organization=kashyapojha
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-    # -------------------------------
-    # 6. Quality Gate Check (CORRECT)
-    # -------------------------------
-    - name: SonarCloud Quality Gate
-      uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
-      timeout-minutes: 5
-      env:
-        SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
-    # -------------------------------
-    # 7. Docker Login
-    # -------------------------------
-    - name: Login to DockerHub
-      uses: docker/login-action@v2
-      with:
-        username: ${{ secrets.DOCKER_USERNAME }}
-        password: ${{ secrets.DOCKER_PASSWORD }}
-
-    # -------------------------------
-    # 8. Build & Push Backend Image
-    # -------------------------------
-    - name: Build & Push Backend
-      run: |
-        docker build -t karann24/smartdocs-backend ./backend
-        docker push karann24/smartdocs-backend
-
-    # -------------------------------
-    # 9. Build & Push Frontend Image
-    # -------------------------------
-    - name: Build & Push Frontend
-      run: |
-        docker build -t karann24/smartdocs-frontend ./frontend
-        docker push karann24/smartdocs-frontend
-
-    # -------------------------------
-    # 10. Deploy to EC2
-    # -------------------------------
-    - name: Deploy to EC2
-      uses: appleboy/ssh-action@v0.1.9
-      with:
-        host: ${{ secrets.STAGING_HOST }}
-        username: ${{ secrets.STAGING_USER }}
-        key: ${{ secrets.STAGING_KEY }}
-        script: |
-          echo "🚀 Starting deployment..."
-
-          cd ~/smart-docs || git clone https://github.com/${{ github.repository }} ~/smart-docs
-          cd ~/smart-docs
-
-          git pull origin main
-
-          docker pull karann24/smartdocs-backend:latest
-          docker pull karann24/smartdocs-frontend:latest
-
-          docker compose down
-          docker compose up -d --remove-orphans
-
-          echo "✅ Deployment completed!"
+# -------------------------------
+# Network
+# -------------------------------
+networks:
+  smartdocs-network:
+    driver: bridge

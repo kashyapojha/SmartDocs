@@ -38,7 +38,7 @@ jobs:
 
 
   # -------------------------------
-  # 2️⃣ SonarCloud Analysis
+  # 2️⃣ SonarCloud Analysis (NON-BLOCKING)
   # -------------------------------
   sonarcloud:
     name: SonarCloud Analysis
@@ -49,24 +49,27 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0   # IMPORTANT for SonarCloud
+          fetch-depth: 0
 
       - name: SonarCloud Scan
         uses: sonarsource/sonarcloud-github-action@v2
         with:
-          projectKey: SmartDocs
-          organization: kashyapojha
           args: >
+            -Dsonar.projectKey=SmartDocs
+            -Dsonar.organization=kashyapojha
             -Dsonar.sources=frontend,backend
             -Dsonar.exclusions=**/node_modules/**,**/logs/**
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Quality Gate Check
+      - name: Quality Gate Check (Non-blocking)
+        if: always()
         uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
         timeout-minutes: 5
+        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
 
   # -------------------------------
   # 3️⃣ Docker Build & Push

@@ -36,14 +36,14 @@ jobs:
         working-directory: ${{ matrix.service }}
         run: npm test || echo "No tests found"
 
-
   # -------------------------------
-  # 2️⃣ SonarCloud Analysis (NON-BLOCKING)
+  # 2️⃣ SonarCloud Analysis (Non-blocking)
   # -------------------------------
   sonarcloud:
     name: SonarCloud Analysis
     runs-on: ubuntu-latest
     needs: build-and-test
+    continue-on-error: true  # ⚡ <- non-blocking
 
     steps:
       - name: Checkout code
@@ -55,21 +55,16 @@ jobs:
         uses: sonarsource/sonarcloud-github-action@v2
         with:
           args: >
-            -Dsonar.projectKey=SmartDocs
-            -Dsonar.organization=kashyapojha
             -Dsonar.sources=frontend,backend
             -Dsonar.exclusions=**/node_modules/**,**/logs/**
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Quality Gate Check (Non-blocking)
-        if: always()
+      - name: Quality Gate Check
         uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
         timeout-minutes: 5
-        continue-on-error: true
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
 
   # -------------------------------
   # 3️⃣ Docker Build & Push
@@ -100,7 +95,6 @@ jobs:
         run: |
           docker build -t karann24/smartdocs-backend:latest ./backend
           docker push karann24/smartdocs-backend:latest
-
 
   # -------------------------------
   # 4️⃣ Deploy to EC2

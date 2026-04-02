@@ -1,7 +1,10 @@
 version: '3.9'
 
 services:
+
+  # -------------------------------
   # MongoDB Database
+  # -------------------------------
   mongodb:
     image: mongo:7
     container_name: smartdocs-mongo
@@ -21,22 +24,22 @@ services:
     networks:
       - smartdocs-network
 
+
+  # -------------------------------
   # Backend API Server
+  # -------------------------------
   backend:
-    image: karann24/smartdocs-backend
+    image: karann24/smartdocs-backend:latest
     container_name: smartdocs-backend
     ports:
       - "5000:5000"
     env_file:
-      - .env 
+      - .env
     environment:
       NODE_ENV: production
       PORT: 5000
       MONGO_URI: mongodb://mongodb:27017/smartdocs
-      JWT_SECRET: ${JWT_SECRET:-your-super-secret-jwt-key-change-in-production}
-      JWT_EXPIRE: 7d
-      REFRESH_TOKEN_EXPIRE: 30d
-      CLIENT_URL: http://localhost:3000
+      CLIENT_URL: http://3.111.204.191:3000   # 👈 FIXED (was localhost)
     depends_on:
       mongodb:
         condition: service_healthy
@@ -52,16 +55,17 @@ services:
       retries: 3
       start_period: 40s
 
+
+  # -------------------------------
   # Frontend React Application
+  # -------------------------------
   frontend:
-    image: karann24/smartdocs-frontend
+    image: karann24/smartdocs-frontend:latest
     container_name: smartdocs-frontend
     ports:
       - "3000:3000"
     environment:
-      REACT_APP_API_URL: http://backend:5000
-      REACT_APP_ENV: production
-      REACT_APP_DEBUG: "false"
+      REACT_APP_API_URL: http://3.111.204.191:5000   # 👈 FIXED
       NODE_ENV: production
     depends_on:
       backend:
@@ -70,12 +74,61 @@ services:
     networks:
       - smartdocs-network
 
-# Named volumes for data persistence
+
+  # -------------------------------
+  # SonarQube (Production Setup)
+  # -------------------------------
+  sonarqube:
+    image: sonarqube:lts
+    container_name: sonarqube
+    depends_on:
+      - sonardb
+    ports:
+      - "9000:9000"
+    environment:
+      SONAR_JDBC_URL: jdbc:postgresql://sonardb:5432/sonar
+      SONAR_JDBC_USERNAME: sonar
+      SONAR_JDBC_PASSWORD: sonar
+    volumes:
+      - sonarqube_data:/opt/sonarqube/data
+      - sonarqube_logs:/opt/sonarqube/logs
+      - sonarqube_extensions:/opt/sonarqube/extensions
+    restart: unless-stopped
+    networks:
+      - smartdocs-network
+
+
+  # -------------------------------
+  # SonarQube Database (PostgreSQL)
+  # -------------------------------
+  sonardb:
+    image: postgres:13
+    container_name: sonarqube-db
+    environment:
+      POSTGRES_USER: sonar
+      POSTGRES_PASSWORD: sonar
+      POSTGRES_DB: sonar
+    volumes:
+      - sonardb_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - smartdocs-network
+
+
+# -------------------------------
+# Volumes
+# -------------------------------
 volumes:
   mongo_data:
-    driver: local
+  sonarqube_data:
+  sonarqube_logs:
+  sonarqube_extensions:
+  sonardb_data:
 
-# Custom network for service communication
+
+# -------------------------------
+# Network
+# -------------------------------
 networks:
   smartdocs-network:
     driver: bridge

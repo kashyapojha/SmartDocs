@@ -55,7 +55,7 @@ jobs:
         SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
     # -------------------------------
-    # 6. Quality Gate Check
+    # 6. Quality Gate Check (CORRECT)
     # -------------------------------
     - name: SonarCloud Quality Gate
       uses: sonarsource/sonarqube-quality-gate-action@v1.1.0
@@ -89,7 +89,7 @@ jobs:
         docker push karann24/smartdocs-frontend
 
     # -------------------------------
-    # 10. Deploy to EC2 (FIXED)
+    # 10. Deploy to EC2
     # -------------------------------
     - name: Deploy to EC2
       uses: appleboy/ssh-action@v0.1.9

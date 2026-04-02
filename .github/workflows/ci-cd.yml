@@ -36,9 +36,8 @@ jobs:
         working-directory: ${{ matrix.service }}
         run: npm test || echo "No tests found"
 
-
   # -------------------------------
-  # 2️⃣ SonarQube Analysis
+  # 2️⃣ Start SonarQube & Scan
   # -------------------------------
   sonar:
     name: SonarQube Analysis
@@ -49,51 +48,26 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: '18'
-
-      - name: Install dependencies
-        run: npm install || true
-
-      - name: Wait for SonarQube Server
+      - name: Start SonarQube Docker
         run: |
-          echo "Waiting for SonarQube server..."
-          until curl -s -f ${{ secrets.SONAR_HOST_URL }}/api/system/status | grep -q "UP"; do
-            echo "SonarQube not ready, retrying in 10s..."
-            sleep 10
-          done
-          echo "SonarQube is UP!"
+          docker run -d --name sonarqube -p 9000:9000 sonarqube:lts
+          echo "Waiting 60s for SonarQube to be ready..."
+          sleep 60
 
-      - name: SonarQube Frontend Scan
-        uses: sonarsource/sonarqube-scan-action@v2
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=SmartDocs-Frontend
-            -Dsonar.sources=frontend
+      - name: Install Sonar Scanner
+        run: |
+          npm install -g sonar-scanner
 
-      - name: SonarQube Backend Scan
-        uses: sonarsource/sonarqube-scan-action@v2
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-        with:
-          args: >
-            -Dsonar.projectKey=SmartDocs-Backend
-            -Dsonar.sources=backend
+      - name: Run SonarQube Scan
+        run: |
+          sonar-scanner \
+            -Dsonar.projectKey=SmartDocs \
+            -Dsonar.sources=. \
+            -Dsonar.host.url=http://localhost:9000 \
+            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
 
-      - name: Quality Gate Check
-        uses: sonarsource/sonarqube-quality-gate-action@v1
-        timeout-minutes: 5
-        continue-on-error: false
-        env:
-          SONAR_HOST_URL: ${{ secrets.SONAR_HOST_URL }}
-          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
-
+      - name: Stop SonarQube Docker
+        run: docker stop sonarqube && docker rm sonarqube
 
   # -------------------------------
   # 3️⃣ Docker Build & Push
@@ -115,17 +89,15 @@ jobs:
 
       - name: Build & Push Frontend
         run: |
-          docker build --pull --cache-from=karann24/smartdocs-frontend:latest \
+          docker build \
             --build-arg REACT_APP_API_URL=http://3.111.204.191:5000 \
             -t karann24/smartdocs-frontend:latest ./frontend
           docker push karann24/smartdocs-frontend:latest
 
       - name: Build & Push Backend
         run: |
-          docker build --pull --cache-from=karann24/smartdocs-backend:latest \
-            -t karann24/smartdocs-backend:latest ./backend
+          docker build -t karann24/smartdocs-backend:latest ./backend
           docker push karann24/smartdocs-backend:latest
-
 
   # -------------------------------
   # 4️⃣ Deploy to EC2

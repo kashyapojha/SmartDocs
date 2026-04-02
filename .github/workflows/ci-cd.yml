@@ -36,38 +36,60 @@ jobs:
         working-directory: ${{ matrix.service }}
         run: npm test || echo "No tests found"
 
+
   # -------------------------------
-  # 2️⃣ Start SonarQube & Scan
+  # 2️⃣ Start SonarQube & Analysis
   # -------------------------------
   sonar:
     name: SonarQube Analysis
     runs-on: ubuntu-latest
     needs: build-and-test
+    services:
+      sonarqube:
+        image: sonarqube:lts
+        ports:
+          - 9000:9000
+        options: >-
+          --health-cmd "curl -f http://localhost:9000 || exit 1"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Start SonarQube Docker
+      - name: Wait for SonarQube to be ready
         run: |
-          docker run -d --name sonarqube -p 9000:9000 sonarqube:lts
-          echo "Waiting 60s for SonarQube to be ready..."
-          sleep 60
+          echo "Waiting for SonarQube server..."
+          for i in {1..30}; do
+            status=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:9000)
+            if [ "$status" -eq 200 ]; then
+              echo "SonarQube ready!"
+              break
+            else
+              echo "Not ready yet, retry in 10s..."
+              sleep 10
+            fi
+          done
 
-      - name: Install Sonar Scanner
-        run: |
-          npm install -g sonar-scanner
+      - name: SonarQube Scan
+        uses: sonarsource/sonarqube-scan-action@v2
+        with:
+          projectKey: SmartDocs
+          projectName: SmartDocs
+        env:
+          SONAR_HOST_URL: http://localhost:9000
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Run SonarQube Scan
-        run: |
-          sonar-scanner \
-            -Dsonar.projectKey=SmartDocs \
-            -Dsonar.sources=. \
-            -Dsonar.host.url=http://localhost:9000 \
-            -Dsonar.login=${{ secrets.SONAR_TOKEN }}
+      - name: Quality Gate Check
+        uses: sonarsource/sonarqube-quality-gate-action@v1
+        timeout-minutes: 5
+        continue-on-error: false
+        env:
+          SONAR_HOST_URL: http://localhost:9000
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
 
-      - name: Stop SonarQube Docker
-        run: docker stop sonarqube && docker rm sonarqube
 
   # -------------------------------
   # 3️⃣ Docker Build & Push
@@ -98,6 +120,7 @@ jobs:
         run: |
           docker build -t karann24/smartdocs-backend:latest ./backend
           docker push karann24/smartdocs-backend:latest
+
 
   # -------------------------------
   # 4️⃣ Deploy to EC2
